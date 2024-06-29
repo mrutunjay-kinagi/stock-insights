@@ -1,0 +1,23 @@
+{
+  "Conservative": {
+      "PE_Ratio": 15,
+      "ROE": 0.1,
+      "PB_Ratio": 2,
+      "Dividend_Yield": 0.03,
+      "Debt_to_Equity": 0.3
+  },
+  "Moderate": {
+      "PE_Ratio": 20,
+      "ROE": 0.15,
+      "PB_Ratio": 3,
+      "Dividend_Yield": 0.02,
+      "Debt_to_Equity": 0.5
+  },
+  "Aggressive": {
+      "PE_Ratio": 25,
+      "ROE": 0.2,
+      "PB_Ratio": 4,
+      "Dividend_Yield": 0.01,
+      "Debt_to_Equity": 0.7
+  }
+}

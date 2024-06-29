@@ -1,63 +1,46 @@
 import pandas as pd
-from sklearn.metrics import accuracy_score, precision_score, recall_score
-from src.prediction import Predictor
+from sklearn.metrics import accuracy_score
 
 class Backtester:
-    def __init__(self, model_file, data_file, thresholds):
-        self.predictor = Predictor(model_file)
-        self.data = pd.read_csv(data_file)
+    def __init__(self, model, thresholds):
+        self.model = model
         self.thresholds = thresholds
 
-    def apply_strategy(self):
-        predictions = self.predictor.predict(self.data)
-        recommendations = []
+    def apply_thresholds(self, data):
+        conditions = (
+            (data['PE Ratio'] <= self.thresholds['PE_ratio']) &
+            (data['ROE'] >= self.thresholds['ROE']) &
+            (data['Dividend Yield'] >= self.thresholds['Dividend_Yield']) &
+            (data['DE Ratio'] <= self.thresholds['DE_ratio'])
+        )
+        data['recommendation'] = conditions
+        return data
 
-        for i, prediction in enumerate(predictions):
-            reasons = []
-            if prediction['PE_Ratio'] <= self.thresholds['pe_threshold']:
-                reasons.append(f"P/E Ratio ({prediction['PE_Ratio']}) is below the threshold ({self.thresholds['pe_threshold']})")
-            if prediction['ROE'] >= self.thresholds['roe_threshold']:
-                reasons.append(f"ROE ({prediction['ROE']}) is above the threshold ({self.thresholds['roe_threshold']})")
-            if prediction['PB_Ratio'] <= self.thresholds['pb_threshold']:
-                reasons.append(f"P/B Ratio ({prediction['PB_Ratio']}) is below the threshold ({self.thresholds['pb_threshold']})")
-            if prediction['Dividend_Yield'] >= self.thresholds['dividend_yield_threshold']:
-                reasons.append(f"Dividend Yield ({prediction['Dividend_Yield']}) is above the threshold ({self.thresholds['dividend_yield_threshold']})")
-            if prediction['Debt_to_Equity'] <= self.thresholds['debt_to_equity_threshold']:
-                reasons.append(f"Debt-to-Equity Ratio ({prediction['Debt_to_Equity']}) is below the threshold ({self.thresholds['debt_to_equity_threshold']})")
+    def backtest(self, data):
+        data = self.apply_thresholds(data)
+        predictions = self.model.predict(data.drop(columns=['recommendation']))
+        accuracy = accuracy_score(data['recommendation'], predictions)
+        return accuracy, data
 
-            if len(reasons) == 5:
-                recommendations.append(1)  # Buy
-            else:
-                recommendations.append(0)  # Don't Buy
+    def simulate_trades(self, data, initial_balance=10000):
+        balance = initial_balance
+        shares = 0
+        for i in range(len(data) - 1):
+            if data['recommendation'].iloc[i]:
+                # Buy signal
+                shares_to_buy = balance // data['Close'].iloc[i]
+                balance -= shares_to_buy * data['Close'].iloc[i]
+                shares += shares_to_buy
+            elif shares > 0:
+                # Sell signal
+                balance += shares * data['Close'].iloc[i]
+                shares = 0
+        # Final liquidation
+        if shares > 0:
+            balance += shares * data['Close'].iloc[-1]
+        return balance
 
-        return recommendations
-
-    def evaluate_strategy(self, recommendations):
-        actuals = self.data['target_column']  # Assuming 'target_column' contains the actual buy/sell decisions
-        accuracy = accuracy_score(actuals, recommendations)
-        precision = precision_score(actuals, recommendations)
-        recall = recall_score(actuals, recommendations)
-
-        return {
-            'accuracy': accuracy,
-            'precision': precision,
-            'recall': recall
-        }
-
-if __name__ == "__main__":
-    thresholds = {
-        "pe_threshold": 20,
-        "roe_threshold": 12,
-        "pb_threshold": 2,
-        "dividend_yield_threshold": 2,
-        "debt_to_equity_threshold": 1
-    }
-
-    backtester = Backtester('./models/trained_model.pkl', './data/processed/processed_data.csv', thresholds)
-    recommendations = backtester.apply_strategy()
-    metrics = backtester.evaluate_strategy(recommendations)
-
-    print("Backtesting Results:")
-    print(f"Accuracy: {metrics['accuracy']}")
-    print(f"Precision: {metrics['precision']}")
-    print(f"Recall: {metrics['recall']}")
+    def evaluate_strategy(self, data, initial_balance=10000):
+        accuracy, data_with_recommendations = self.backtest(data)
+        final_balance = self.simulate_trades(data_with_recommendations, initial_balance)
+        return accuracy, final_balance
