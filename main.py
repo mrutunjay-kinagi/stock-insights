@@ -2,7 +2,6 @@ from src.data_collection import DataCollector
 from src.data_processing import DataProcessor
 from src.model_training import ModelTrainer
 from src.prediction import Predictor
-from src.backtesting import Backtester
 from src.utils import load_thresholds
 import os
 
@@ -100,7 +99,6 @@ def main():
         # Price Prediction
         trainer.train_regression_model(X_train, y_train)
         mse, predicted_prices = trainer.evaluate_regression_model(X_test, y_test)
-        print("Mean Squared Error:", mse)
         print("Predicted Prices:")
         print(predicted_prices)
 
@@ -114,10 +112,16 @@ def main():
         decision = "Buy" if prediction[-1] else "Sell"
         print(f"Recommendation based on {selected_threshold_type} threshold: {decision}")
 
-        # Backtesting
-        #backtester = Backtester(trainer.classification_model, selected_thresholds)
-        #accuracy, final_balance = backtester.evaluate_strategy(data)
-        #print(f"Backtesting Accuracy: {accuracy}")
+        # Next Day's Open Price Prediction
+        predict_next = input("Do you want to predict the next day's open price? (y/n): ").lower()
+        if predict_next == 'y':
+            latest_data_point = processor.get_latest_data_point(data).drop(columns=['Target', 'Close'])  # Ensure correct features
+            latest_data_point_scaled = processor.scale_latest_data(latest_data_point)  # Scale the latest data point
+            if latest_data_point_scaled.shape[1] == X_train.shape[1]:  # Ensure the number of features matches
+                next_open_price = trainer.predict_next_open_price(latest_data_point_scaled)
+                print("Predicted Next Day's Open Price:", next_open_price)
+            else:
+                print("Feature mismatch: Ensure the latest data point matches the training data features.")
     else:
         print("Invalid option selected.")
 
